@@ -335,7 +335,7 @@
 
 	function sqlite3_getSingle($tableName = false,$whereClause = false,$params = array()){
 		if(!isset($params['indexBy'])){$params['indexBy'] = 'id';}
-		$shouldClose = false;if(!isset($params['db']) || !$params['db']){$shouldClose = true;$params['db'] = sqlite3_open((isset($params['db.file']) ? $params['db.file'] : $GLOBALS['api']['sqlite3']['database']),SQLITE3_OPEN_READONLY,(isset($params['db.pass']) ? $params['db.pass'] : null));}
+		$shouldClose = false;if(!isset($params['db']) || !$params['db']){$params['db'] = sqlite3_open( (isset($params['db.file']) ? $params['db.file'] : $GLOBALS['api']['sqlite3']['database']) ,6, (isset($params['db.password']) ? $params['db.password'] : false) );$shouldClose = true;}
 		$selectString = '*';if(isset($params['selectString'])){$selectString = $params['selectString'];}
 		$GLOBALS['DB_LAST_QUERY'] = 'SELECT '.$selectString.' FROM ['.$tableName.'] '.(($whereClause !== false) ? 'WHERE '.$whereClause : '');
 		if(isset($params['group'])){$GLOBALS['DB_LAST_QUERY'] .= ' GROUP BY '.$params['db']->escapeString($params['group']);}
@@ -350,7 +350,7 @@
 	}
 	function sqlite3_getWhere($tableName = false,$whereClause = false,$params = array()){
 		if(!isset($params['indexBy'])){$params['indexBy'] = 'id';}
-		$shouldClose = false;if(!isset($params['db']) || !$params['db']){$shouldClose = true;$params['db'] = sqlite3_open((isset($params['db.file']) ? $params['db.file'] : $GLOBALS['api']['sqlite3']['database']),SQLITE3_OPEN_READONLY,(isset($params['db.pass']) ? $params['db.pass'] : null));}
+		$shouldClose = false;if(!isset($params['db']) || !$params['db']){$params['db'] = sqlite3_open( (isset($params['db.file']) ? $params['db.file'] : $GLOBALS['api']['sqlite3']['database']) ,6, (isset($params['db.password']) ? $params['db.password'] : false) );$shouldClose = true;}
 		$selectString = '*';if(isset($params['selectString'])){$selectString = $params['selectString'];}
 		$GLOBALS['DB_LAST_QUERY'] = 'SELECT '.$selectString.' FROM ['.$tableName.'] '.(($whereClause !== false) ? 'WHERE '.$whereClause : '');
 		if(isset($params['group'])){$GLOBALS['DB_LAST_QUERY'] .= ' GROUP BY '.$params['db']->escapeString($params['group']);}
@@ -369,7 +369,7 @@
 		if($r && $params['indexBy'] === false){while($row = sqlite3_fetchArray($r,$params['db'])){$rows[] = $row;}}
 		if($GLOBALS['api']['sqlite3']['use.cache']){sqlite3_cache_set($params['db'],$tableName,$GLOBALS['DB_LAST_QUERY'],$rows);}
 
-		if( isset($params['db.encrypt']) ){sqlite3_rowsDecrypt($rows,$params);}
+		//if( isset($params['db.encrypt']) ){sqlite3_rowsDecrypt($rows,$params);}
 		if($shouldClose){sqlite3_close($params['db']);}
 
 		return $rows;
