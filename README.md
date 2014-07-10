@@ -124,7 +124,16 @@ $rows = sqlite3_getWhere('test',1,array('db'=>$db,'db.encrypt'=>array('data'=>0)
 sqlite3_close($db);
 ```
 
-$conceptOBs = account_concept_getWhere('decrypt(conceptTitle) = \'concepto\'');
+```
+/* Open database with third param, this time the password */
+$db = sqlite3_open('test.db',SQLITE3_OPEN_READONLY,'password');
+
+$params = array('db'=>$db,'db.encrypt'=>array('data'=>0));
+$rows = sqlite3_getWhere('test','decrypt(data) = 10',$params);
+
+/* Close conection */
+sqlite3_close($db);
+```
 
 Debug
 -----
