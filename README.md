@@ -39,6 +39,18 @@ $r = sqlite3_close($db,true);
 echo 'Time spent: 'round(microtime(1)-$d,2).PHP_EOL;
 ```
 
+If you are going to make a solely insert, you can point via params the path
+of the database and all the other commands will be done in an automatic way
+
+```
+$params = array('db.file'=>'test.db');
+$r = sqlite3_insertIntoTable2('test',$row,$params);
+```
+
+Note: When doing multiple secuential inserts is highly recomendable begin a 
+transaction first
+
+
 Query data from the database
 ----------------------------
 
