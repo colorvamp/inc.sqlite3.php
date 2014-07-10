@@ -130,6 +130,11 @@ Debug
 After every process the next globals will be feed:
 
 $GLOBALS['DB_LAST_QUERY'] // last query/exec
+
 $GLOBALS['DB_LAST_QUERY_ERRNO'] // last error number
+
 $GLOBALS['DB_LAST_QUERY_ERROR'] // last error description
+
 $GLOBALS['DB_LAST_QUERY_CHANG'] // last changes (when suitable)
+
+
