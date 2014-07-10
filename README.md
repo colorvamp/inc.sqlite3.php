@@ -124,6 +124,8 @@ $rows = sqlite3_getWhere('test',1,array('db'=>$db,'db.encrypt'=>array('data'=>0)
 sqlite3_close($db);
 ```
 
+$conceptOBs = account_concept_getWhere('decrypt(conceptTitle) = \'concepto\'');
+
 Debug
 -----
 

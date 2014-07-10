@@ -369,7 +369,7 @@
 		if($r && $params['indexBy'] === false){while($row = sqlite3_fetchArray($r,$params['db'])){$rows[] = $row;}}
 		if($GLOBALS['api']['sqlite3']['use.cache']){sqlite3_cache_set($params['db'],$tableName,$GLOBALS['DB_LAST_QUERY'],$rows);}
 
-		//if( isset($params['db.encrypt']) ){sqlite3_rowsDecrypt($rows,$params);}
+		if( isset($params['db.encrypt']) ){sqlite3_rowsDecrypt($rows,$params);}
 		if($shouldClose){sqlite3_close($params['db']);}
 
 		return $rows;
