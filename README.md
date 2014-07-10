@@ -43,7 +43,10 @@ If you are going to make a solely insert, you can point via params the path
 of the database and all the other commands will be done in an automatic way
 
 ```
+$GLOBALS['tables']['test'] = array('_id_'=>'INTEGER AUTOINCREMENT','data'=>'INTEGER NOT NULL');
+
 $params = array('db.file'=>'test.db');
+$row = array('_id_'=>1,'data'=>5);
 $r = sqlite3_insertIntoTable2('test',$row,$params);
 ```
 
@@ -81,3 +84,37 @@ $params = array('db.file'=>'test.db','order'=>'id DESC','limit'=>10);
 $rows = sqlite3_getWhere('test','(id > 10)',$params);
 print_r($rows);
 ```
+
+Working with encryption
+-----------------------
+
+Inserting data
+
+```
+/* Open database with third param, this time the password */
+$db = sqlite3_open('test.db',SQLITE3_OPEN_READWRITE | SQLITE3_OPEN_CREATE,'password');
+
+/* Begin transaction */
+sqlite3_exec('BEGIN;',$db);
+$i = 1;while($i < 10001){
+	/* When making inserctions provide an array with a list of fields to encrypt (as indexes)
+	 * in the position 'db.encrypt' */
+	$r = sqlite3_insertIntoTable2('test',array('_id_'=>$i,'data'=>$i),array('db'=>$db,'db.encrypt'=>array('data'=>0)));
+	if(isset($r['errorDescription'])){print_r($r);exit;}
+	$i++;
+}
+/* Close conection with true as second param to commit */
+sqlite3_close($db,true);
+```
+
+Quering data
+
+```
+/* Open database with third param, this time the password */
+$db = sqlite3_open('test.db',SQLITE3_OPEN_READONLY,'password');
+/* Pass a list of fields to decrypt (as indexes) in the position 'db.encrypt' */
+$rows = sqlite3_getWhere('test',1,array('db'=>$db,'db.encrypt'=>array('data'=>0),'limit'=>10));
+/* Close conection */
+sqlite3_close($db);
+```
+
