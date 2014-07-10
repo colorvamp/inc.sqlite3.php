@@ -96,10 +96,11 @@ $db = sqlite3_open('test.db',SQLITE3_OPEN_READWRITE | SQLITE3_OPEN_CREATE,'passw
 
 /* Begin transaction */
 sqlite3_exec('BEGIN;',$db);
+$params = array('db'=>$db,'db.encrypt'=>array('data'=>0));
 $i = 1;while($i < 10001){
 	/* When making inserctions provide an array with a list of fields to encrypt (as indexes)
 	 * in the position 'db.encrypt' */
-	$r = sqlite3_insertIntoTable2('test',array('_id_'=>$i,'data'=>$i),array('db'=>$db,'db.encrypt'=>array('data'=>0)));
+	$r = sqlite3_insertIntoTable2('test',array('_id_'=>$i,'data'=>$i),$params);
 	if(isset($r['errorDescription'])){print_r($r);exit;}
 	$i++;
 }
