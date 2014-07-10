@@ -96,14 +96,17 @@ $db = sqlite3_open('test.db',SQLITE3_OPEN_READWRITE | SQLITE3_OPEN_CREATE,'passw
 
 /* Begin transaction */
 sqlite3_exec('BEGIN;',$db);
+
+/* When making inserctions provide an array with a list of fields to encrypt (as indexes)
+ * in the position 'db.encrypt' */
 $params = array('db'=>$db,'db.encrypt'=>array('data'=>0));
+
 $i = 1;while($i < 10001){
-	/* When making inserctions provide an array with a list of fields to encrypt (as indexes)
-	 * in the position 'db.encrypt' */
 	$r = sqlite3_insertIntoTable2('test',array('_id_'=>$i,'data'=>$i),$params);
 	if(isset($r['errorDescription'])){print_r($r);exit;}
 	$i++;
 }
+
 /* Close conection with true as second param to commit */
 sqlite3_close($db,true);
 ```
@@ -113,9 +116,20 @@ Quering data
 ```
 /* Open database with third param, this time the password */
 $db = sqlite3_open('test.db',SQLITE3_OPEN_READONLY,'password');
+
 /* Pass a list of fields to decrypt (as indexes) in the position 'db.encrypt' */
 $rows = sqlite3_getWhere('test',1,array('db'=>$db,'db.encrypt'=>array('data'=>0),'limit'=>10));
+
 /* Close conection */
 sqlite3_close($db);
 ```
 
+Debug
+-----
+
+After every process the next globals will be feed:
+
+$GLOBALS['DB_LAST_QUERY'] // last query/exec
+$GLOBALS['DB_LAST_QUERY_ERRNO'] // last error number
+$GLOBALS['DB_LAST_QUERY_ERROR'] // last error description
+$GLOBALS['DB_LAST_QUERY_CHANG'] // last changes (when suitable)
