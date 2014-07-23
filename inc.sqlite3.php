@@ -6,13 +6,20 @@
 	$GLOBALS['api']['sqlite3'] = array_merge(array(
 		'dir.lock'=>'',
 		'dir.cache'=>'../db/cache/sqlite3/',
-		'database'=>'database.db',
+		'database'=>'../db/database.db',
 		'databases'=>array(),
 		'use.cache'=>true,
 		'iv.padding'=>25
 	),$GLOBALS['api']['sqlite3']);
 
 	function sqlite3_open($filePath = false,$mode = 6,$password = null){
+		if(is_array($filePath)){do{
+			$params = $filePath;
+			if(isset($params['db.file'])){$filePath = $params['db.file'];}
+
+			if(!is_string($filePath)){$filePath = $GLOBALS['api']['sqlite3']['database'];}
+		}while(false);}
+
 		//FIXME: si se intenta abrir una base de datos que ya esté abierta, se podría enviar la conexion cacheada, aunq habría problemas con los close
 		/* Mode 6 = (SQLITE3_OPEN_READWRITE | SQLITE3_OPEN_CREATE) */
 		$oldmask = umask(0);
@@ -186,54 +193,7 @@
 	}
 
 	function sqlite3_insertIntoTable($tableName,$array,$db = false,$aTableName = false){
-		$shouldClose = false;if(!$db){$shouldClose = true;$db = sqlite3_open($GLOBALS['api']['sqlite3']['database']);sqlite3_exec('BEGIN',$db);}
-		$tableKeys = array();foreach($array as $key=>$value){$array[$key] = $db->escapeString($value);if($key[0] == '_' && $key[strlen($key)-1] == '_'){$newkey = substr($key,1,-1);$tableKeys[$newkey] = $array[$newkey] = $value;unset($array[$key]);}}
-
-		$query = 'INSERT INTO ['.$tableName.'] ';
-		$tableIds = $tableValues = '(';
-		/* SQL uses single quotes to delimit string literals. */
-		foreach($array as $key=>$value){$tableIds .= '\''.$key.'\',';$tableValues .= '\''.$value.'\',';}
-		$tableIds = substr($tableIds,0,-1).')';$tableValues = substr($tableValues,0,-1).')';
-		$query .= $tableIds.' VALUES '.$tableValues;
-
-		$r = sqlite3_exec($query,$db);
-		if(!$r && $db->lastErrorCode() == 1){
-			if(strpos($db->lastErrorMsg(),'has no column named')){	if($shouldClose){sqlite3_close($db);}return array('OK'=>false,'id'=>false,'errno'=>$GLOBALS['DB_LAST_QUERY_ERRNO'],'error'=>$GLOBALS['DB_LAST_QUERY_ERROR'],'query'=>$query,'errorCode'=>$GLOBALS['DB_LAST_QUERY_ERRNO'],'errorDescription'=>$GLOBALS['DB_LAST_QUERY_ERROR'],'file'=>__FILE__,'line'=>__LINE__);}
-			if(strpos($db->lastErrorMsg(),'may not be NULL')){		if($shouldClose){sqlite3_close($db);}return array('OK'=>false,'id'=>false,'errno'=>$GLOBALS['DB_LAST_QUERY_ERRNO'],'error'=>$GLOBALS['DB_LAST_QUERY_ERROR'],'query'=>$query,'errorCode'=>$GLOBALS['DB_LAST_QUERY_ERRNO'],'errorDescription'=>$GLOBALS['DB_LAST_QUERY_ERROR'],'file'=>__FILE__,'line'=>__LINE__);}
-			if(!isset($GLOBALS['tables'][$tableName]) && !isset($GLOBALS['tables'][$aTableName])){if($shouldClose){sqlite3_close($db);}return array('OK'=>false,'id'=>false,'error'=>$db->lastErrorMsg(),'errno'=>$db->lastErrorCode(),'query'=>$query);}
-			$r = sqlite3_createTable($tableName,($aTableName ? $GLOBALS['tables'][$aTableName] : $GLOBALS['tables'][$tableName]),$db);
-			if(isset($r['errorDescription'])){if($shouldClose){sqlite3_close($db);}return array('OK'=>false,'id'=>false,'errno'=>$GLOBALS['DB_LAST_QUERY_ERRNO'],'error'=>$GLOBALS['DB_LAST_QUERY_ERROR'],'query'=>$query,'errorCode'=>$GLOBALS['DB_LAST_QUERY_ERRNO'],'errorDescription'=>$GLOBALS['DB_LAST_QUERY_ERROR'],'file'=>__FILE__,'line'=>__LINE__);}
-			if(isset($GLOBALS['indexes'][$tableName])){$r = sqlite3_createIndex($tableName,$GLOBALS['indexes'][$tableName],$db);if(isset($r['errorDescription'])){if($shouldClose){sqlite3_close($db);}return $r;}}
-			if(isset($GLOBALS['indexes'][$aTableName])){$r = sqlite3_createIndex($tableName,$GLOBALS['indexes'][$aTableName],$db);if(isset($r['errorDescription'])){if($shouldClose){sqlite3_close($db);}return $r;}}
-			$r = sqlite3_exec($query,$db);
-		}
-
-		$lastID = $db->lastInsertRowID();
-		if(!$r && $db->lastErrorCode() == 19 && count($tableKeys)){
-			$insertError = false;/* Hay errores que pueden ser significativos, como una contraseña que no puede ser null, pero saltarán incluso si quiero actualizar */
-			if(substr($db->lastErrorMsg(),-15) == 'may not be NULL'){$insertError = array('OK'=>false,'id'=>false,'errno'=>$GLOBALS['DB_LAST_QUERY_ERRNO'],'error'=>$GLOBALS['DB_LAST_QUERY_ERROR'],'query'=>$query,'errorCode'=>$GLOBALS['DB_LAST_QUERY_ERRNO'],'errorDescription'=>$GLOBALS['DB_LAST_QUERY_ERROR'],'file'=>__FILE__,'line'=>__LINE__);}
-			if(substr($db->lastErrorMsg(),0,7) == 'column ' && count($tableKeys) < 2){
-				$columnName = substr($db->lastErrorMsg(),7,-14);
-				if(!isset($tableKeys[$columnName])){$GLOBALS['DB_LAST_QUERY_ERRNO'] = $db->lastErrorCode();$GLOBALS['DB_LAST_QUERY_ERROR'] = $db->lastErrorMsg();return array('OK'=>$r,'id'=>$lastID,'error'=>$db->lastErrorMsg(),'errno'=>$db->lastErrorCode(),'query'=>$query);}
-			}
-			$query = 'UPDATE \''.$tableName.'\' SET ';
-			$tableKeysValues = array_keys($tableKeys);
-			foreach($array as $key=>$value){if(isset($tableKeys[$key])){continue;}$query .= '\''.$key.'\'=\''.$value.'\',';}
-			$query = substr($query,0,-1).' WHERE';
-			foreach($tableKeys as $k=>$v){$query .= ' '.$k.' = \''.$v.'\' AND';}
-			$query = substr($query,0,-4).';';
-			$r = sqlite3_exec($query,$db);
-			if(!$r && $insertError){if($shouldClose){sqlite3_close($db);}return $insertError;}
-			$lastID = array_shift($tableKeys);
-		}
-
-		$GLOBALS['DB_LAST_QUERY_ID'] = $lastID;
-		$ret = array('OK'=>$r,'id'=>$lastID,'error'=>$db->lastErrorMsg(),'errno'=>$db->lastErrorCode(),'query'=>$query);
-		if($ret['OK']){$r = sqlite3_cache_destroy($db,$tableName);}
-		/* Da lo mismo que no se esté usando caché explícitamente, si se actualiza esta tabla debemos
-		 * eliminar cualquier rastro de caché para evitar datos inválido al hacer consultas que podrian estar cacheadas */
-		if($shouldClose){$r = sqlite3_exec('COMMIT;',$db);if(!$r){sqlite3_close($db);return array('OK'=>false,'errno'=>$GLOBALS['DB_LAST_QUERY_ERRNO'],'error'=>$GLOBALS['DB_LAST_QUERY_ERROR'],'file'=>__FILE__,'line'=>__LINE__);}sqlite3_close($db);}
-		return $ret;
+		return sqlite3_insertIntoTable2($tableName,$array,array('db'=>$db),$aTableName);
 	}
 	function sqlite3_insertIntoTable2($tableName,$array,$params = array(),$aTableName = false){
 		$shouldClose = false;if(!isset($params['db']) || !$params['db']){$params['db'] = sqlite3_open( (isset($params['db.file']) ? $params['db.file'] : $GLOBALS['api']['sqlite3']['database']) ,6, (isset($params['db.password']) ? $params['db.password'] : false) );$shouldClose = true;}
@@ -261,14 +221,14 @@
 			$r = sqlite3_createTable($tableName,($aTableName ? $GLOBALS['tables'][$aTableName] : $GLOBALS['tables'][$tableName]),$params['db']);
 			if(isset($r['errorDescription'])){if($shouldClose){sqlite3_close($params['db']);}return sqlite3_r($query,__FILE__,__LINE__);}
 			if(isset($GLOBALS['indexes'][$tableName])){$r = sqlite3_createIndex($tableName,$GLOBALS['indexes'][$tableName],$params['db']);if(isset($r['errorDescription'])){if($shouldClose){sqlite3_close($params['db']);}return $r;}}
-			if(isset($GLOBALS['indexes'][$aTableName])){$r = sqlite3_createIndex($tableName,$GLOBALS['indexes'][$aTableName],$params['db']);if(isset($r['errorDescription'])){if($shouldClose){sqlite3_close($params['db']);}return $r;}}
+			if(($tableName != $aTableName) && isset($GLOBALS['indexes'][$aTableName])){$r = sqlite3_createIndex($tableName,$GLOBALS['indexes'][$aTableName],$params['db']);if(isset($r['errorDescription'])){if($shouldClose){sqlite3_close($params['db']);}return $r;}}
 			$r = sqlite3_exec($query,$params['db']);
 		}
 
-		$lastID = $params['db']->lastInsertRowID();
+		$GLOBALS['DB_LAST_QUERY_ID'] = $params['db']->lastInsertRowID();
 		if(!$r && $params['db']->lastErrorCode() == 19 && count($tableKeys)){
-			$insertError = false;/* Hay errores que pueden ser significativos, como una contraseña que no puede ser null, pero saltarán incluso si quiero actualizar */
-			if(substr($params['db']->lastErrorMsg(),-15) == 'may not be NULL'){$insertError = array('query'=>$query,'errorCode'=>$GLOBALS['DB_LAST_QUERY_ERRNO'],'errorDescription'=>$GLOBALS['DB_LAST_QUERY_ERROR'],'file'=>__FILE__,'line'=>__LINE__);}
+			/* Hay errores que pueden ser significativos, como una contraseña que no puede ser null, pero saltarán incluso si quiero actualizar */
+			if(substr($params['db']->lastErrorMsg(),-15) == 'may not be NULL'){	if($shouldClose){sqlite3_close($params['db']);}return sqlite3_r($query,__FILE__,__LINE__);}
 			if(substr($params['db']->lastErrorMsg(),0,7) == 'column ' && count($tableKeys) < 2){
 				$columnName = substr($params['db']->lastErrorMsg(),7,-14);
 				if(!isset($tableKeys[$columnName])){if($shouldClose){sqlite3_close($params['db']);}return sqlite3_r($query,__FILE__,__LINE__);}
@@ -285,17 +245,16 @@
 			$query = substr($query,0,-4).';';
 
 			$r = sqlite3_exec($query,$params['db']);
-			if(!$r && $insertError){if($shouldClose){sqlite3_close($params['db']);}return $insertError;}
-			$lastID = array_shift($tableKeys);
+			if(!$r){if($shouldClose){sqlite3_close($params['db']);}return sqlite3_r($query,__FILE__,__LINE__);}
+			$GLOBALS['DB_LAST_QUERY_ID'] = array_shift($tableKeys);
 		}
 
-		$GLOBALS['DB_LAST_QUERY_ID'] = $lastID;
-		$ret = array('OK'=>$r,'id'=>$lastID,'error'=>$params['db']->lastErrorMsg(),'errno'=>$params['db']->lastErrorCode(),'query'=>$query);
-		if($ret['OK']){$r = sqlite3_cache_destroy($params['db'],$tableName);}
+		if(!$r){return sqlite3_r($query,__FILE__,__LINE__);}
+		$r = sqlite3_cache_destroy($params['db'],$tableName);
 		/* Da lo mismo que no se esté usando caché explícitamente, si se actualiza esta tabla debemos
 		 * eliminar cualquier rastro de caché para evitar datos inválido al hacer consultas que podrian estar cacheadas */
-		if($shouldClose){$r = sqlite3_close($params['db'],true);if(!$r){return array('errorCode'=>$GLOBALS['DB_LAST_QUERY_ERRNO'],'errorDescription'=>$GLOBALS['DB_LAST_QUERY_ERROR'],'file'=>__FILE__,'line'=>__LINE__);}}
-		return $ret;
+		if($shouldClose && !($r = sqlite3_close($params['db'],true))){return array('errorCode'=>$GLOBALS['DB_LAST_QUERY_ERRNO'],'errorDescription'=>$GLOBALS['DB_LAST_QUERY_ERROR'],'file'=>__FILE__,'line'=>__LINE__);}
+		return array('id'=>$GLOBALS['DB_LAST_QUERY_ID'],'error'=>$GLOBALS['DB_LAST_QUERY_ERROR'],'errno'=>$GLOBALS['DB_LAST_QUERY_ERRNO'],'query'=>$query);
 	}
 
 	function sqlite3_getFullText($tableName = false,$criteria = '',$fields = array(),$params = array()){
